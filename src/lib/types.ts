@@ -140,6 +140,67 @@ export interface Message {
   sent_at: string | null;
 }
 
+export type AdDestination = 'link' | 'whatsapp' | 'lead_form' | 'call';
+export type AdStatus = 'draft' | 'publishing' | 'paused' | 'active' | 'failed' | 'archived';
+
+export interface AdAudience {
+  countries?: string[];
+  age_min?: number;
+  age_max?: number;
+  genders?: number[];
+  location_name?: string;
+  radius_km?: number;
+  interests?: string[];
+}
+
+export interface AdPreset {
+  id: string;
+  name: string;
+  description: string | null;
+  industry: string | null;
+  objective: string;
+  optimization_goal: string;
+  destination: AdDestination;
+  cta_type: string;
+  daily_budget_cents: number;
+  audience: AdAudience;
+  primary_text: string | null;
+  headline: string | null;
+  description_text: string | null;
+  is_global: boolean;
+  client_id: string | null;
+}
+
+export interface Ad {
+  id: string;
+  client_id: string;
+  preset_id: string | null;
+  ad_account_id: string | null;
+  campaign_id: string | null;
+  name: string;
+  status: AdStatus;
+  destination: AdDestination;
+  objective: string | null;
+  optimization_goal: string | null;
+  cta_type: string | null;
+  primary_text: string | null;
+  headline: string | null;
+  description_text: string | null;
+  image_url: string | null;
+  link_url: string | null;
+  whatsapp_phone: string | null;
+  page_id: string | null;
+  daily_budget_cents: number;
+  audience: AdAudience;
+  meta_campaign_id: string | null;
+  meta_adset_id: string | null;
+  meta_creative_id: string | null;
+  meta_ad_id: string | null;
+  error: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 /** The authenticated user plus their tenant scope. */
 export interface Actor {
   id: string;
