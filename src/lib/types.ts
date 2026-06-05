@@ -9,6 +9,7 @@ export interface Client {
   id: string;
   name: string;
   slug: string;
+  kind: 'client' | 'internal';
   industry: string | null;
   contact_name: string | null;
   contact_email: string | null;

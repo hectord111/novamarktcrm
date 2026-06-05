@@ -2,10 +2,11 @@ import Link from 'next/link';
 import { Plus, Search, Mail, Phone } from 'lucide-react';
 import { requireActor } from '@/lib/auth';
 import { listLeads, countLeadsByStatus, type LeadFilters } from '@/lib/data/leads';
-import { listClientOptions } from '@/lib/data/clients';
+import { resolveAccount, listAccountOptions } from '@/lib/data/accounts';
 import { isAgency, type LeadStatus } from '@/lib/types';
 import { Card, PageHeader, Button, Avatar, Badge, Input, Select, EmptyState } from '@/components/ui';
 import { StageBadge } from '@/components/app/StageBadge';
+import { AccountSwitcher, type AccountChoice } from '@/components/app/AccountSwitcher';
 import { LEAD_STAGES, sourceLabel, SOURCE_LABELS } from '@/lib/domain';
 import { formatCents, timeAgo } from '@/lib/format';
 import { cn } from '@/lib/utils';
@@ -14,7 +15,7 @@ export const dynamic = 'force-dynamic';
 
 const PAGE_SIZE = 25;
 
-type SP = { status?: string; client?: string; source?: string; q?: string; page?: string };
+type SP = { status?: string; account?: string; source?: string; q?: string; page?: string };
 
 function buildHref(cur: SP, override: Partial<SP>) {
   const merged = { ...cur, ...override };
@@ -29,28 +30,41 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
   const sp = await searchParams;
   const page = Math.max(1, Number(sp.page) || 1);
   const statusFilter = LEAD_STAGES.find((s) => s.value === sp.status)?.value as LeadStatus | undefined;
+  const agency = isAgency(actor);
+
+  const view = await resolveAccount(actor, sp.account);
+  const accountFilter = view.mode === 'portfolio' ? { excludeClientId: view.excludeClientId ?? undefined } : { clientId: view.clientId };
 
   const filters: LeadFilters = {
     status: statusFilter,
-    clientId: sp.client || undefined,
+    ...accountFilter,
     source: sp.source || undefined,
     search: sp.q || undefined,
     limit: PAGE_SIZE,
     offset: (page - 1) * PAGE_SIZE,
   };
 
-  const [{ items, total }, counts, clientOptions] = await Promise.all([
+  const [{ items, total }, counts, accounts] = await Promise.all([
     listLeads(actor, filters),
-    countLeadsByStatus(actor, { clientId: sp.client || undefined, search: sp.q || undefined }),
-    isAgency(actor) ? listClientOptions(actor) : Promise.resolve([]),
+    countLeadsByStatus(actor, { ...accountFilter, search: sp.q || undefined }),
+    agency ? listAccountOptions() : Promise.resolve([]),
   ]);
 
   const totalAll = Object.values(counts).reduce((a, b) => a + b, 0);
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const showClientCol = view.mode === 'portfolio';
+
+  const choices: AccountChoice[] = [
+    ...accounts.filter((a) => a.kind === 'internal').map(() => ({ value: 'nova', label: 'Nova (yo)', internal: true })),
+    { value: 'all', label: 'Toda la cartera' },
+    ...accounts.filter((a) => a.kind === 'client').map((a) => ({ value: a.id, label: a.name })),
+  ];
+  const currentChoice = view.mode === 'nova' ? 'nova' : view.mode === 'portfolio' ? 'all' : view.clientId;
 
   return (
     <div className="animate-in">
-      <PageHeader title="Leads" subtitle={`${total} ${total === 1 ? 'lead' : 'leads'}${statusFilter ? ' en este estado' : ''}`}>
+      <PageHeader title="Leads" subtitle={`${total} ${total === 1 ? 'lead' : 'leads'} · ${view.label}`}>
+        {agency && <AccountSwitcher choices={choices} current={currentChoice} />}
         <Button href="/leads/new">
           <Plus size={16} /> Nuevo lead
         </Button>
@@ -61,8 +75,8 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
         <Link
           href={buildHref(sp, { status: undefined, page: undefined })}
           className={cn(
-            'rounded-full px-3 py-1.5 text-xs font-medium ring-1 ring-inset',
-            !statusFilter ? 'bg-slate-900 text-white ring-slate-900' : 'bg-white text-slate-600 ring-slate-200 hover:bg-slate-50',
+            'rounded px-3 py-1.5 text-xs font-bold uppercase tracking-wide ring-1 ring-inset',
+            !statusFilter ? 'bg-ink text-white ring-ink' : 'bg-white text-ink/60 ring-ink/15 hover:bg-paper',
           )}
         >
           Todos <span className="ml-1 opacity-60">{totalAll}</span>
@@ -72,8 +86,8 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
             key={s.value}
             href={buildHref(sp, { status: s.value, page: undefined })}
             className={cn(
-              'rounded-full px-3 py-1.5 text-xs font-medium ring-1 ring-inset transition-colors',
-              statusFilter === s.value ? `${s.color} ring-current` : 'bg-white text-slate-600 ring-slate-200 hover:bg-slate-50',
+              'rounded px-3 py-1.5 text-xs font-bold uppercase tracking-wide ring-1 ring-inset transition-colors',
+              statusFilter === s.value ? `${s.color} ring-current` : 'bg-white text-ink/60 ring-ink/15 hover:bg-paper',
             )}
           >
             {s.label} <span className="ml-1 opacity-60">{counts[s.value] ?? 0}</span>
@@ -84,20 +98,11 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
       {/* Filters */}
       <form method="get" action="/leads" className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center">
         {sp.status && <input type="hidden" name="status" value={sp.status} />}
+        {sp.account && <input type="hidden" name="account" value={sp.account} />}
         <div className="relative flex-1">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink/40" />
           <Input name="q" defaultValue={sp.q} placeholder="Buscar por nombre, email o teléfono…" className="pl-9" />
         </div>
-        {isAgency(actor) && (
-          <Select name="client" defaultValue={sp.client || ''} className="sm:w-48">
-            <option value="">Todos los clientes</option>
-            {clientOptions.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </Select>
-        )}
         <Select name="source" defaultValue={sp.source || ''} className="sm:w-44">
           <option value="">Todos los orígenes</option>
           {Object.entries(SOURCE_LABELS).map(([k, v]) => (
@@ -122,49 +127,49 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-slate-100 text-left text-xs uppercase tracking-wide text-slate-400">
-                  <th className="px-5 py-3 font-medium">Lead</th>
-                  {isAgency(actor) && <th className="px-3 py-3 font-medium">Cliente</th>}
-                  <th className="px-3 py-3 font-medium">Campaña</th>
-                  <th className="px-3 py-3 font-medium">Origen</th>
-                  <th className="px-3 py-3 font-medium">Estado</th>
-                  <th className="px-5 py-3 text-right font-medium">Entró</th>
+                <tr className="border-b border-ink/10 text-left text-xs uppercase tracking-wide text-ink/40">
+                  <th className="px-5 py-3 font-bold">Lead</th>
+                  {showClientCol && <th className="px-3 py-3 font-bold">Cliente</th>}
+                  <th className="px-3 py-3 font-bold">Campaña</th>
+                  <th className="px-3 py-3 font-bold">Origen</th>
+                  <th className="px-3 py-3 font-bold">Estado</th>
+                  <th className="px-5 py-3 text-right font-bold">Entró</th>
                 </tr>
               </thead>
               <tbody>
                 {items.map((l) => (
-                  <tr key={l.id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50/60">
+                  <tr key={l.id} className="border-b border-ink/5 last:border-0 hover:bg-paper">
                     <td className="px-5 py-3">
                       <Link href={`/leads/${l.id}`} className="flex items-center gap-3">
                         <Avatar name={l.full_name || '?'} color={l.client_color} size={34} />
                         <div className="min-w-0">
-                          <div className="font-medium text-slate-900">{l.full_name || 'Sin nombre'}</div>
-                          <div className="flex items-center gap-2 text-xs text-slate-400">
+                          <div className="font-semibold text-ink">{l.full_name || 'Sin nombre'}</div>
+                          <div className="flex items-center gap-2 text-xs text-ink/40">
                             {l.email && <span className="inline-flex items-center gap-1"><Mail size={11} />{l.email}</span>}
                             {l.phone && <span className="inline-flex items-center gap-1"><Phone size={11} />{l.phone}</span>}
                           </div>
                         </div>
                       </Link>
                     </td>
-                    {isAgency(actor) && (
+                    {showClientCol && (
                       <td className="px-3 py-3">
-                        <span className="inline-flex items-center gap-1.5 text-slate-700">
-                          <span className="h-2 w-2 rounded-full" style={{ background: l.client_color || '#7c3aed' }} />
+                        <span className="inline-flex items-center gap-1.5 text-ink/70">
+                          <span className="h-2 w-2 rounded-full" style={{ background: l.client_color || '#0b0b0b' }} />
                           {l.client_name}
                         </span>
                       </td>
                     )}
-                    <td className="px-3 py-3 text-slate-500">{l.campaign_name || '—'}</td>
+                    <td className="px-3 py-3 text-ink/50">{l.campaign_name || '—'}</td>
                     <td className="px-3 py-3">
                       <Badge tone="slate">{sourceLabel(l.source)}</Badge>
                     </td>
                     <td className="px-3 py-3">
                       <StageBadge status={l.status} />
                       {l.status === 'converted' && l.value_cents ? (
-                        <span className="ml-2 text-xs font-medium text-emerald-600">{formatCents(l.value_cents, true)}</span>
+                        <span className="ml-2 text-xs font-bold text-emerald-600">{formatCents(l.value_cents, true)}</span>
                       ) : null}
                     </td>
-                    <td className="px-5 py-3 text-right text-xs text-slate-400">{timeAgo(l.created_at)}</td>
+                    <td className="px-5 py-3 text-right text-xs text-ink/40">{timeAgo(l.created_at)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -174,7 +179,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
       )}
 
       {totalPages > 1 && (
-        <div className="mt-4 flex items-center justify-between text-sm text-slate-500">
+        <div className="mt-4 flex items-center justify-between text-sm text-ink/50">
           <span>Página {page} de {totalPages}</span>
           <div className="flex gap-2">
             {page > 1 && <Button variant="outline" size="sm" href={buildHref(sp, { page: String(page - 1) })}>Anterior</Button>}

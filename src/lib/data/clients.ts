@@ -20,7 +20,7 @@ export interface ClientListItem extends Client {
 }
 
 export async function listClients(actor: Actor): Promise<ClientListItem[]> {
-  const scope = isAgency(actor) ? sql`true` : sql`c.id = ${actor.client_id}`;
+  const scope = isAgency(actor) ? sql`c.kind = 'client'` : sql`c.id = ${actor.client_id}`;
   const rows = await sql`
     select c.*,
       coalesce(l.leads, 0)::int            as leads,
@@ -95,6 +95,6 @@ export async function updateClient(actor: Actor, id: string, patch: Partial<Clie
 
 export async function listClientOptions(actor: Actor) {
   const scope = isAgency(actor) ? sql`status <> 'archived'` : sql`id = ${actor.client_id}`;
-  const rows = await sql`select id, name, color, slug from nova.clients where ${scope} order by name`;
-  return rows as unknown as { id: string; name: string; color: string | null; slug: string }[];
+  const rows = await sql`select id, name, color, slug, kind from nova.clients where ${scope} order by (kind <> 'internal'), name`;
+  return rows as unknown as { id: string; name: string; color: string | null; slug: string; kind: 'client' | 'internal' }[];
 }

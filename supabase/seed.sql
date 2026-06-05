@@ -17,7 +17,7 @@ declare
                          'Álvarez','Romero','Torres','Navarro','Gil','Vázquez','Serrano','Ramos','Molina','Ortega'];
   welcome text := '¡Hola {{nombre}}! 👋 Gracias por tu interés en {{cliente}}. Para poder ayudarte mejor, ¿podrías contarnos un poco más sobre lo que estás buscando? Cuéntanos qué necesitas y un asesor te responderá enseguida. 🙌';
 begin
-  if exists (select 1 from nova.clients) then
+  if exists (select 1 from nova.clients where kind = 'client') then
     raise notice 'Seed skipped: clients already exist.';
     return;
   end if;

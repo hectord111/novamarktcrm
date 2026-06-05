@@ -12,6 +12,7 @@ export interface LeadListItem extends Lead {
 export interface LeadFilters {
   status?: LeadStatus;
   clientId?: string;
+  excludeClientId?: string;
   campaignId?: string;
   source?: string;
   search?: string;
@@ -28,6 +29,7 @@ export async function listLeads(actor: Actor, f: LeadFilters = {}) {
   const conds = [scope(actor)];
   if (f.status) conds.push(sql`l.status = ${f.status}`);
   if (f.clientId) conds.push(sql`l.client_id = ${f.clientId}`);
+  if (f.excludeClientId) conds.push(sql`l.client_id <> ${f.excludeClientId}`);
   if (f.campaignId) conds.push(sql`l.campaign_id = ${f.campaignId}`);
   if (f.source) conds.push(sql`l.source = ${f.source}`);
   if (f.search) {
@@ -56,6 +58,7 @@ export async function listLeads(actor: Actor, f: LeadFilters = {}) {
 export async function countLeadsByStatus(actor: Actor, f: Omit<LeadFilters, 'status'> = {}) {
   const conds = [scope(actor)];
   if (f.clientId) conds.push(sql`l.client_id = ${f.clientId}`);
+  if (f.excludeClientId) conds.push(sql`l.client_id <> ${f.excludeClientId}`);
   if (f.search) {
     const q = `%${f.search}%`;
     conds.push(sql`(l.full_name ilike ${q} or l.email ilike ${q} or l.phone ilike ${q})`);

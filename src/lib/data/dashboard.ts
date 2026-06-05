@@ -2,6 +2,27 @@ import 'server-only';
 import { sql } from '../db';
 import { isAgency, type Actor } from '../types';
 
+/** Optional account scoping: restrict to one client, or exclude one (e.g. the internal Nova account). */
+export interface ScopeOpts {
+  clientId?: string | null;
+  excludeClientId?: string | null;
+}
+
+function leadScopeSql(actor: Actor, o: ScopeOpts = {}) {
+  if (!isAgency(actor)) return actor.client_id ? sql`l.client_id = ${actor.client_id}` : sql`false`;
+  if (o.clientId) return sql`l.client_id = ${o.clientId}`;
+  if (o.excludeClientId) return sql`l.client_id <> ${o.excludeClientId}`;
+  return sql`true`;
+}
+
+function spendScopeSql(actor: Actor, o: ScopeOpts = {}) {
+  if (!isAgency(actor)) return actor.client_id ? sql`c.client_id = ${actor.client_id}` : sql`false`;
+  if (o.clientId) return sql`c.client_id = ${o.clientId}`;
+  if (o.excludeClientId) return sql`c.client_id <> ${o.excludeClientId}`;
+  return sql`true`;
+}
+
+
 function isoDate(d: Date) {
   return d.toISOString().slice(0, 10);
 }
@@ -52,9 +73,9 @@ export interface Kpis {
   convertedDelta: number | null;
 }
 
-async function rawTotals(actor: Actor, from: string, toExclusive: string, fromD: string, toD: string) {
-  const leadScope = isAgency(actor) ? sql`true` : sql`l.client_id = ${actor.client_id}`;
-  const spendScope = isAgency(actor) ? sql`true` : sql`c.client_id = ${actor.client_id}`;
+async function rawTotals(actor: Actor, from: string, toExclusive: string, fromD: string, toD: string, o: ScopeOpts = {}) {
+  const leadScope = leadScopeSql(actor, o);
+  const spendScope = spendScopeSql(actor, o);
 
   const [leadAgg] = await sql`
     select
@@ -78,9 +99,9 @@ async function rawTotals(actor: Actor, from: string, toExclusive: string, fromD:
   };
 }
 
-export async function getKpis(actor: Actor, period: Period): Promise<Kpis> {
-  const cur = await rawTotals(actor, period.from, period.toExclusive, period.from, period.to);
-  const prev = await rawTotals(actor, period.prevFrom, period.prevToExclusive, period.prevFrom, period.from);
+export async function getKpis(actor: Actor, period: Period, o: ScopeOpts = {}): Promise<Kpis> {
+  const cur = await rawTotals(actor, period.from, period.toExclusive, period.from, period.to, o);
+  const prev = await rawTotals(actor, period.prevFrom, period.prevToExclusive, period.prevFrom, period.from, o);
 
   const cpl = cur.leads > 0 ? Math.round(cur.spend / cur.leads) : null;
   const prevCpl = prev.leads > 0 ? prev.spend / prev.leads : null;
@@ -112,9 +133,9 @@ export interface DayPoint {
   leads: number;
 }
 
-export async function getDailySeries(actor: Actor, period: Period): Promise<DayPoint[]> {
-  const leadScope = isAgency(actor) ? sql`true` : sql`l.client_id = ${actor.client_id}`;
-  const spendScope = isAgency(actor) ? sql`true` : sql`c.client_id = ${actor.client_id}`;
+export async function getDailySeries(actor: Actor, period: Period, o: ScopeOpts = {}): Promise<DayPoint[]> {
+  const leadScope = leadScopeSql(actor, o);
+  const spendScope = spendScopeSql(actor, o);
   const rows = await sql`
     select to_char(d::date, 'YYYY-MM-DD') as date,
            coalesce(s.spend, 0)::int as spend_cents,
@@ -148,7 +169,7 @@ export interface ClientBreakdownRow {
 }
 
 export async function getClientBreakdown(actor: Actor, period: Period): Promise<ClientBreakdownRow[]> {
-  const clientScope = isAgency(actor) ? sql`c.status <> 'archived'` : sql`c.id = ${actor.client_id}`;
+  const clientScope = isAgency(actor) ? sql`c.status <> 'archived' and c.kind = 'client'` : sql`c.id = ${actor.client_id}`;
   const rows = await sql`
     select c.id, c.name, c.slug, c.color, c.industry,
            coalesce(sp.spend, 0)::int     as spend_cents,
@@ -187,12 +208,43 @@ export async function getClientBreakdown(actor: Actor, period: Period): Promise<
   }));
 }
 
-export async function getSourceBreakdown(actor: Actor, period: Period) {
-  const leadScope = isAgency(actor) ? sql`true` : sql`l.client_id = ${actor.client_id}`;
+export async function getSourceBreakdown(actor: Actor, period: Period, o: ScopeOpts = {}) {
+  const leadScope = leadScopeSql(actor, o);
   const rows = await sql`
     select source, count(*)::int as leads
     from nova.leads l
     where ${leadScope} and l.created_at >= ${period.from} and l.created_at < ${period.toExclusive}
     group by source order by leads desc`;
   return rows.map((r) => ({ source: r.source as string, leads: r.leads as number }));
+}
+
+export interface AgencyBusiness {
+  activeClients: number;
+  mrrCents: number;
+  newClientsThisMonth: number;
+  managedSpend30Cents: number;
+}
+
+/** Cross-portfolio health of the agency itself (excludes the internal Nova account). */
+export async function getAgencyBusiness(actor: Actor): Promise<AgencyBusiness> {
+  if (!isAgency(actor)) return { activeClients: 0, mrrCents: 0, newClientsThisMonth: 0, managedSpend30Cents: 0 };
+  const [biz] = await sql`
+    select
+      count(*) filter (where status = 'active')::int                                          as active_clients,
+      coalesce(sum(monthly_fee_cents) filter (where status = 'active'), 0)::int                as mrr_cents,
+      count(*) filter (where created_at >= date_trunc('month', now()))::int                    as new_this_month
+    from nova.clients
+    where kind = 'client'`;
+  const [{ spend }] = await sql`
+    select coalesce(sum(m.spend_cents), 0)::int as spend
+    from nova.campaign_metrics m
+    join nova.campaigns c on c.id = m.campaign_id
+    join nova.clients cl on cl.id = c.client_id
+    where cl.kind = 'client' and m.date >= current_date - 29`;
+  return {
+    activeClients: biz.active_clients,
+    mrrCents: biz.mrr_cents,
+    newClientsThisMonth: biz.new_this_month,
+    managedSpend30Cents: spend,
+  };
 }
