@@ -15,12 +15,13 @@ const globalForDb = globalThis as unknown as { novaSql?: postgres.Sql };
 
 function create(): postgres.Sql | undefined {
   if (!url) return undefined;
+  // Every query is schema-qualified (`nova.*`), so we don't depend on search_path.
+  // `prepare: false` keeps us compatible with Supabase's transaction pooler.
   return postgres(url, {
     prepare: false,
-    max: 10,
+    max: 5,
     idle_timeout: 20,
     connect_timeout: 15,
-    connection: { search_path: 'nova, public' },
   });
 }
 
