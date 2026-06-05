@@ -28,15 +28,15 @@ export function SpendLeadsChart({ data }: { data: SeriesPoint[] }) {
     <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="h-[240px] w-full">
       <defs>
         <linearGradient id="spendGrad" x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stopColor="#7c3aed" stopOpacity="0.28" />
-          <stop offset="100%" stopColor="#7c3aed" stopOpacity="0" />
+          <stop offset="0%" stopColor="#0b0b0b" stopOpacity="0.22" />
+          <stop offset="100%" stopColor="#0b0b0b" stopOpacity="0" />
         </linearGradient>
       </defs>
       {[0.25, 0.5, 0.75, 1].map((g) => (
         <line key={g} x1={pad} x2={w - pad} y1={h - pad - g * (h - 2 * pad)} y2={h - pad - g * (h - 2 * pad)} stroke="#eef2f7" strokeWidth={1} vectorEffect="non-scaling-stroke" />
       ))}
       <polygon points={areaPts} fill="url(#spendGrad)" />
-      <polyline points={spendPts} fill="none" stroke="#7c3aed" strokeWidth={2} vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
+      <polyline points={spendPts} fill="none" stroke="#0b0b0b" strokeWidth={2.5} vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
       <polyline points={leadsPts} fill="none" stroke="#059669" strokeWidth={2} strokeDasharray="4 3" vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
     </svg>
   );
@@ -98,7 +98,7 @@ export function BarList({ items }: { items: { label: string; value: number; disp
             <span className="text-slate-500">{it.display ?? formatCents(it.value)}</span>
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-            <div className="h-full rounded-full" style={{ width: `${(it.value / max) * 100}%`, background: it.color || '#7c3aed' }} />
+            <div className="h-full rounded-full" style={{ width: `${(it.value / max) * 100}%`, background: it.color || '#0b0b0b' }} />
           </div>
         </div>
       ))}

@@ -14,7 +14,7 @@ import { sourceLabel } from '@/lib/domain';
 
 export const dynamic = 'force-dynamic';
 
-const SOURCE_COLORS = ['#7c3aed', '#2563eb', '#0d9488', '#f59e0b', '#db2777', '#16a34a'];
+const SOURCE_COLORS = ['#0b0b0b', '#2563eb', '#0d9488', '#f59e0b', '#db2777', '#16a34a'];
 
 export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ days?: string }> }) {
   const actor = await requireActor();

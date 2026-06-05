@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Sparkles, Mail } from 'lucide-react';
+import { Mail } from 'lucide-react';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 import { Button, Input, Label } from '@/components/ui';
 import { cn } from '@/lib/utils';
@@ -64,16 +64,18 @@ export function LoginForm() {
   return (
     <div className="w-full max-w-sm">
       <div className="mb-8 flex flex-col items-center text-center">
-        <span className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-600 text-white shadow-lg shadow-brand-600/30">
-          <Sparkles size={22} />
+        <span className="mb-3 inline-flex items-center justify-center rounded-md border-2 border-ink bg-yellow p-2 text-ink">
+          <svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden>
+            <path d="M12 3.5v17M4.5 7.75l15 8.5M19.5 7.75l-15 8.5" />
+          </svg>
         </span>
-        <h1 className="text-xl font-semibold text-slate-900">Nova Marketing CRM</h1>
-        <p className="mt-1 text-sm text-slate-500">
+        <h1 className="font-display text-2xl text-ink">Nova Marketing CRM</h1>
+        <p className="mt-1 text-sm text-ink/55">
           {mode === 'signin' ? 'Inicia sesión para gestionar tus leads' : 'Crea tu cuenta de Nova Marketing'}
         </p>
       </div>
 
-      <form onSubmit={handlePassword} className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <form onSubmit={handlePassword} className="space-y-4 rounded-lg border-2 border-ink bg-white p-6 shadow-[6px_6px_0_#e5ff00]">
         <div>
           <Label htmlFor="email">Email</Label>
           <Input id="email" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="tu@email.com" />
@@ -103,8 +105,8 @@ export function LoginForm() {
         </Button>
 
         <div className="relative py-1 text-center">
-          <span className="bg-white px-2 text-xs text-slate-400">o</span>
-          <div className="absolute inset-x-0 top-1/2 -z-10 h-px bg-slate-100" />
+          <span className="bg-white px-2 text-xs font-bold uppercase tracking-wide text-ink/40">o</span>
+          <div className="absolute inset-x-0 top-1/2 -z-10 h-px bg-ink/10" />
         </div>
 
         <Button type="button" variant="outline" disabled={loading} onClick={handleMagic} className="w-full">
