@@ -26,11 +26,22 @@ export const SOURCE_LABELS: Record<string, string> = {
   webhook: 'Webhook',
   import: 'Importación',
   website: 'Web',
+  prospecting: 'Prospección',
 };
 
 export function sourceLabel(source: string) {
   return SOURCE_LABELS[source] ?? source;
 }
+
+/** Prospecting funnel stages (Nova's own outreach to businesses without a web). */
+export const PROSPECT_STAGES: { value: string; label: string; tone: 'slate' | 'amber' | 'sky' | 'brand' | 'green' | 'red' }[] = [
+  { value: 'new', label: 'Nuevo', tone: 'slate' },
+  { value: 'contacted', label: 'Contactado', tone: 'amber' },
+  { value: 'replied', label: 'Respondió', tone: 'sky' },
+  { value: 'interested', label: 'Interesado', tone: 'brand' },
+  { value: 'converted', label: 'Cliente 🎉', tone: 'green' },
+  { value: 'discarded', label: 'Descartado', tone: 'red' },
+];
 
 export const ROLE_LABELS: Record<UserRole, string> = {
   owner: 'Propietario',

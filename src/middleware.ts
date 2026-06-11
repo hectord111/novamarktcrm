@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 
-const PUBLIC_PREFIXES = ['/login', '/auth', '/pending', '/setup', '/api/webhooks', '/api/leads/intake', '/api/automations/run'];
+// '/l/' (with trailing slash) = public demo landings for prospects; '/leads' stays protected.
+const PUBLIC_PREFIXES = ['/login', '/auth', '/pending', '/setup', '/l/', '/api/webhooks', '/api/leads/intake', '/api/automations/run'];
 
 export async function middleware(request: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
