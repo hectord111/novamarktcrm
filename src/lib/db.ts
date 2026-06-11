@@ -22,11 +22,14 @@ function create(): postgres.Sql | undefined {
   if (!url) return undefined;
   // Every query is schema-qualified (`nova.*`), so we don't depend on search_path.
   // `prepare: false` keeps us compatible with Supabase's transaction pooler.
+  // Serverless: one connection per invocation. Opening several concurrent
+  // connections to Supabase's pooler can hang the function (the dashboard fires
+  // ~10 queries at once); a single pooled connection serializes them safely.
   return postgres(url, {
     prepare: false,
-    max: 3,
+    max: 1,
     idle_timeout: 20,
-    connect_timeout: 8,
+    connect_timeout: 10,
   });
 }
 
