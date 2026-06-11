@@ -77,7 +77,8 @@ async function rawTotals(actor: Actor, from: string, toExclusive: string, fromD:
   const leadScope = leadScopeSql(actor, o);
   const spendScope = spendScopeSql(actor, o);
 
-  const [leadAgg] = await sql`
+  const [leadRows, spendRows] = await Promise.all([
+    sql`
     select
       count(*)::int                                                  as leads,
       count(*) filter (where status = 'contacted')::int             as contacted,
@@ -86,22 +87,24 @@ async function rawTotals(actor: Actor, from: string, toExclusive: string, fromD:
       count(*) filter (where status = 'lost')::int                  as lost,
       coalesce(sum(value_cents) filter (where status = 'converted'), 0)::int as revenue
     from nova.leads l
-    where ${leadScope} and l.created_at >= ${from} and l.created_at < ${toExclusive}`;
-
-  const [{ spend }] = await sql`
+    where ${leadScope} and l.created_at >= ${from} and l.created_at < ${toExclusive}`,
+    sql`
     select coalesce(sum(m.spend_cents), 0)::int as spend
     from nova.campaign_metrics m
     join nova.campaigns c on c.id = m.campaign_id
-    where ${spendScope} and m.date >= ${fromD} and m.date <= ${toD}`;
+    where ${spendScope} and m.date >= ${fromD} and m.date <= ${toD}`,
+  ]);
 
-  return { ...leadAgg, spend } as {
+  return { ...leadRows[0], spend: spendRows[0].spend } as {
     leads: number; contacted: number; qualified: number; converted: number; lost: number; revenue: number; spend: number;
   };
 }
 
 export async function getKpis(actor: Actor, period: Period, o: ScopeOpts = {}): Promise<Kpis> {
-  const cur = await rawTotals(actor, period.from, period.toExclusive, period.from, period.to, o);
-  const prev = await rawTotals(actor, period.prevFrom, period.prevToExclusive, period.prevFrom, period.from, o);
+  const [cur, prev] = await Promise.all([
+    rawTotals(actor, period.from, period.toExclusive, period.from, period.to, o),
+    rawTotals(actor, period.prevFrom, period.prevToExclusive, period.prevFrom, period.from, o),
+  ]);
 
   const cpl = cur.leads > 0 ? Math.round(cur.spend / cur.leads) : null;
   const prevCpl = prev.leads > 0 ? prev.spend / prev.leads : null;

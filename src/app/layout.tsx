@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import "./globals.css";
 
+// Run the serverless functions next to the Supabase DB (eu-west-1 / Dublin) so
+// data-heavy pages don't pay a transatlantic round-trip per query.
+export const preferredRegion = 'dub1';
+
 export const metadata: Metadata = {
   title: "Nova Marketing CRM",
   description:

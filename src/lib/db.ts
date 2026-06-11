@@ -24,9 +24,9 @@ function create(): postgres.Sql | undefined {
   // `prepare: false` keeps us compatible with Supabase's transaction pooler.
   return postgres(url, {
     prepare: false,
-    max: 5,
+    max: 3,
     idle_timeout: 20,
-    connect_timeout: 15,
+    connect_timeout: 8,
   });
 }
 
