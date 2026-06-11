@@ -10,11 +10,11 @@ import postgres from 'postgres';
  * transaction pooler (PgBouncer).
  */
 /**
- * Connection string resolution (data lives in Postgres; auth stays in Supabase):
- *   1. DATABASE_URL — injected by the Vercel ↔ Neon integration (pooled). Preferred.
- *   2. POSTGRES_URL — injected by the Vercel ↔ Supabase integration (fallback).
+ * Connection string for the data layer. Auth always stays in Supabase; the data
+ * lives in this same Supabase project's Postgres, wired by the Vercel ↔ Supabase
+ * integration as POSTGRES_URL. DATABASE_URL kept as a manual fallback.
  */
-const url = process.env.DATABASE_URL || process.env.POSTGRES_URL || '';
+const url = process.env.POSTGRES_URL || process.env.DATABASE_URL || '';
 
 const globalForDb = globalThis as unknown as { novaSql?: postgres.Sql };
 
